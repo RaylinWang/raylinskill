@@ -142,3 +142,6 @@ if (opt.out) {
   const miss = [!cfg.style && 'style', !cfg.aspect && 'aspect（没有视频，必须让用户选画幅）', !segs.length && 'segments'].filter(Boolean);
   if (miss.length) console.log('还要补：' + miss.join('、'));
 }
+console.log(opt.aspect
+  ? `\n画幅：${opt.aspect}（必须是用户亲口确认过的；不是的话先去问）`
+  : '\n! 还没有画幅：字幕里没有画面尺寸。先问用户视频是 9:16 / 3:4 / 4:5 / 1:1 / 16:9 / 4:3 哪种，不要猜，也不要默认 9:16。');
