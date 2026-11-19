@@ -45,7 +45,7 @@ if (opt.list) {
     for (const n of names) { const p = JSON.parse(fs.readFileSync(path.join(d, n, '角色.json'), 'utf8')); console.log(`  ${n}  ${p.type === 'walk' ? `走路（配 C），${p.frames.length} 张，每秒 ${p.fps} 张，原图面朝${p.facing === 'left' ? '左' : '右'}` : `表情（配 D），${p.frames.length} 张，每 ${p.beat} 秒换一个`}`); }
   };
   show('你的角色库', LIB);
-  console.log('C 要至少一个走路角色、D 要至少一个表情角色才能出片。要准备什么样的图，看 examples/示范形象/；没有现成的图，按 prompts/形象生成提示词.md 的教程去 AI 工具生成（手绘版要配 prompts/手绘风格参考图.png）');
+  console.log('C 要至少一个走路角色、D 要至少一个表情角色才能出片。没有现成的图，把 prompts/形象生成提示词.md 里对应的那段提示词和你的正面照一起发给 AI 生图工具生成');
   process.exit(0);
 }
 

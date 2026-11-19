@@ -89,7 +89,7 @@ if (cfg.style === 'C' || cfg.style === 'D') {
   const packs = (fs.existsSync(LIB) ? fs.readdirSync(LIB) : []).filter(n => !n.startsWith('.') && fs.existsSync(path.join(LIB, n, '角色.json')))
     .map(n => ({ n, t: JSON.parse(fs.readFileSync(path.join(LIB, n, '角色.json'), 'utf8')).type }));
   const ofType = packs.filter(p => p.t === want).map(p => p.n);
-  const howTo = `样式 ${cfg.style} 要用你自己的${zh(want)}形象，请先做一个：准备${want === 'walk' ? ' 2–8 张同一个角色走路的不同姿势（全身）' : ' 1–5 张同一个人的不同表情（头像）'}，白底或透明底，然后运行\n  node prepare_character.mjs --type ${want}${want === 'walk' ? ' --facing left（或 right）' : ''} --name 你的角色名 图1.png 图2.png …\n  要准备什么样的图，看 examples/示范形象/；没有现成的图，按 prompts/形象生成提示词.md 的教程去 AI 工具生成（手绘版要配 prompts/手绘风格参考图.png）`;
+  const howTo = `样式 ${cfg.style} 要用你自己的${zh(want)}形象，请先做一个：准备${want === 'walk' ? ' 2–8 张同一个角色走路的不同姿势（全身）' : ' 1–5 张同一个人的不同表情（头像）'}，白底或透明底，然后运行\n  node prepare_character.mjs --type ${want}${want === 'walk' ? ' --facing left（或 right）' : ''} --name 你的角色名 图1.png 图2.png …\n  没有现成的图，把 prompts/形象生成提示词.md 里对应的那段提示词和你的正面照一起发给 AI 生图工具生成`;
   let c = raw.character;
   if (c == null) {
     if (ofType.length === 1) { c = ofType[0]; console.log(`· 角色：${c}（你的角色库里唯一的${zh(want)}角色）`); }
