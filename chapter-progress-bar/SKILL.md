@@ -163,7 +163,24 @@ node render.mjs 配置.json --green 绿幕.mp4         # 绿幕 MP4
 - `text`：标签文字，不填等于 `main`。
 - `onMain`：压在主色上的文字，A 里推过的字。
 
-用户给色值就用 `{"base": …, "main": …}` 覆盖；用户给色卡图，就从图里取 3–4 个色填进去。文字阴影按文字深浅自动配黑或白。导出绿幕时，配色里不能有偏绿的颜色，否则会跟着绿幕一起被抠掉；脚本发现会提醒。
+用户给色值就用 `{"base": …, "main": …}` 覆盖。文字阴影按文字深浅自动配黑或白。导出绿幕时，配色里不能有偏绿的颜色，否则会跟着绿幕一起被抠掉；脚本发现会提醒。
+
+### 用户上传色卡
+
+用户发来色卡图（品牌色板、配色截图、喜欢的海报都行），用 `palette.mjs` 取色，不要凭肉眼估色值：
+
+```bash
+cd <skill>/scripts
+node palette.mjs 色卡.jpg --out 我的配色.json
+```
+
+脚本只用 node 和 ffmpeg，不用开 Chrome，沙盒里也能跑。它会：
+- 认出色卡的底色（白底、黑底都行）并去掉，再取出主要的几个颜色，按从深到浅编号列出来；
+- 自动分配：最鲜艳的当主色 `main`，最浅的当底槽 `track`，最深的当描边 `ink`，色相差得开的另一个当点缀 `accent`；
+- 色卡里没有够浅或够深的颜色时，用主色调出来；主色太浅、在浅底上看不清时，自动压暗（色相不变），并打印提示；
+- 打印可以直接放进配置的 `"theme": {…}`，`--out` 同时存成文件。
+
+把取到的颜色和分配结果用一两句话告诉用户，然后照常出检查图给用户看。用户想换分工（比如「主色用那个蓝」），按列表里的编号重跑：`--main 3`，也可以 `--track`、`--ink`、`--accent`。用户说的颜色列表里没有，就直接改 theme 里的色值。
 
 ## 画幅和安全区
 
@@ -204,6 +221,7 @@ node render.mjs 配置.json --green 绿幕.mp4         # 绿幕 MP4
 - `scripts/renderer.html`：4 种样式的画法。所有动画只看视频时间，同一秒永远画出同一帧。
 - `scripts/prepare_character.mjs`：把用户的图做成角色、存进角色库、出预览图。抠图按设备选：`scripts/cutout.swift`（macOS，还能打开 HEIC）或 `scripts/cutout.html`（无头 Chrome，能打开 PNG、JPG、WebP、GIF、BMP、AVIF）。图已经是干净的透明 PNG 时，加 `--no-cutout` 原样用。
 - `scripts/browser.mjs`：启动本地文件服务和无头 Chrome，出片和抠图共用。
+- `scripts/palette.mjs`：从用户的色卡图里取色，配成一套 theme。
 - `themes/themes.json`：配色。
 - `safe-zones.json`：安全区。
 - `assets/fonts/`：思源黑体（Noto Sans SC，SIL Open Font License）。
