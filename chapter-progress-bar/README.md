@@ -81,7 +81,7 @@ Agent 会问你章节名和时间、用哪种样式、什么配色，没给视�
 - 代码：MIT（跟随仓库）。
 - 字体 `assets/fonts/NotoSansSC-VF.ttf`：思源黑体，SIL Open Font License 1.1，见 `字体许可.txt`。
 - `预览.jpg`、`examples/示范形象/`：作者 Raylin 本人的形象，只用来示范，请不要用于其他用途。
-- [手绘风格参考图](./prompts/手绘风格参考图.png)来自小红书（rednote），图右下角水印标注 `rednote ID: 1726291436`。原帖链接待核实。图片仅作画风参考，版权归原权利人。
+- [手绘风格参考图](./prompts/手绘风格参考图.png)的原作者是小红书「小桃子手绘屋」，小红书号 `1726291436`（见图右下角水印）。图片仅作画风参考，版权归原权利人。[原作者主页](https://xhslink.cn/o/7uQwm1jZ1Qy)
 
 ## 文件
 
