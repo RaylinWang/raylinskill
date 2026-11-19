@@ -1,0 +1,11 @@
+{
+  "style": "C",
+  "aspect": "9:16",
+  "platform": "tiktok",
+  "character": "小明走路",
+  "segments": [
+    {"label": "准备", "start": 0,  "end": 10},
+    {"label": "动手", "start": 10, "end": 35},
+    {"label": "效果", "start": 35, "end": 50}
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "style": "D",
+  "aspect": "3:4",
+  "character": "小明表情",
+  "segments": [
+    {"label": "翻车现场", "start": 0,  "end": 12},
+    {"label": "为什么",   "start": 12, "end": 30},
+    {"label": "怎么救",   "start": 30, "end": 55}
+  ]
+}

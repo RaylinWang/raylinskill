@@ -1,0 +1,12 @@
+{
+  "style": "B",
+  "video": "../你的口播.mp4",
+  "platform": "xiaohongshu",
+  "segments": [
+    {"label": "先看成品", "start": 1.0,  "end": 8.0},
+    {"label": "为什么贵", "start": 8.0,  "end": 16.0},
+    {"label": "新模型",   "start": 16.0, "end": 26.0},
+    {"label": "三步上手", "start": 26.0, "end": 38.0},
+    {"label": "总结",     "start": 38.0, "end": 51.0}
+  ]
+}

@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>章节进度条渲染页</title>
+<!--
+  由 render.mjs 打开：window.setup(cfg) 一次，之后每帧 window.renderAt(秒)；window.bounds() 返回所有可见元素的外框，用来查安全区。
+  所有动画只看视频时间，同一秒永远画出同一帧。
+  坐标：每种样式在一块「虚拟画布」上画，宽 VW、高 BOX[样式]，再整体缩放 s 倍、放到安全框左上角。
+-->
+<style>
+html,body{margin:0;background:transparent;overflow:hidden}
+#stage{position:relative;overflow:hidden}
+#band{position:absolute;left:0;top:0;transform-origin:0 0}
+#band *{box-sizing:border-box}
+#mover,#layer{position:absolute;left:0;top:0}
+.lb{position:absolute;white-space:nowrap;font-weight:700}
+.spr{position:absolute;display:none}
+</style></head><body><div id="stage"><div id="band"><div id="mover"><div id="layer"></div><div id="spr" class="spr"></div></div></div></div>
+<script>
+const BOX={A:96,B:78,C:315,D:389};          // 各样式内容高度（虚拟单位）
+const SCAP={A:1075,B:1075,C:1400,D:1400};   // s ≤ 画面高 / 这个数（横屏、方屏时防止条太粗）
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+let CFG,SEG,TOTAL,starts,T,VW,CH,IMGS=[],rough={};
+
+// ── 颜色工具 ──
+const hex2rgb=h=>{h=h.replace('#','');if(h.length==3)h=[...h].map(c=>c+c).join('');const n=parseInt(h,16);return[n>>16&255,n>>8&255,n&255];};
+// 绿幕模式（CFG.opaque）下半透明的底槽会透出绿色、被一起抠掉，所以一律画成不透明
+const rgba=(h,a)=>{const[r,g,b]=hex2rgb(h);return`rgba(${r},${g},${b},${CFG&&CFG.opaque?1:a})`;};
+const lum=h=>{const[r,g,b]=hex2rgb(h).map(v=>{v/=255;return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4)});return .2126*r+.7152*g+.0722*b;};
+const darken=(h,k)=>{const[r,g,b]=hex2rgb(h).map(v=>Math.round(v*(1-k)));return`rgb(${r},${g},${b})`;};
+const textShadow=c=>lum(c)<0.35?'3px 3px 0 rgba(255,255,255,.85),0 0 14px rgba(255,255,255,.7)':'2px 2px 0 rgba(0,0,0,.55),0 0 12px rgba(0,0,0,.45)';
+const outline=(c,w)=>`drop-shadow(${w}px 0 0 ${c}) drop-shadow(-${w}px 0 0 ${c}) drop-shadow(0 ${w}px 0 ${c}) drop-shadow(0 -${w}px 0 ${c})`;
+
+window.setup=async(cfg)=>{
+ CFG=cfg;CH=cfg.character||{kind:'none'};
+ SEG=cfg.segments.map(s=>({label:String(s.label),start:+s.start,end:+s.end,d:Math.max(0.01,s.end-s.start)}));
+ TOTAL=SEG.reduce((a,s)=>a+s.d,0);
+ starts=[];{let c=0;for(const s of SEG){starts.push(c/TOTAL);c+=s.d;}}
+ T={...cfg.theme};T.text??=T.main;T.onMain??=T.track;
+ const st=cfg.style,sf=cfg.safe,sw=sf.x1-sf.x0;
+ const s=cfg.scale??Math.min(sw/920,cfg.height/SCAP[st]);
+ VW=sw/s;
+ const x=sf.x0,y=sf.y0+(cfg.offsetY||0);
+ band.style.width=VW+'px';band.style.height=BOX[st]+'px';
+ band.style.transform=`translate(${x}px,${y}px) scale(${s})`;
+ let bandH=Math.min(cfg.height,Math.ceil(y+BOX[st]*s)+6);bandH+=bandH%2;
+ stage.style.width=cfg.width+'px';stage.style.height=bandH+'px';
+ const fs=document.createElement('style');fs.textContent=`@font-face{font-family:PB;src:url("${cfg.fontUrl}")}#band{font-family:PB,"PingFang SC","Noto Sans SC","Microsoft YaHei",sans-serif}`;document.head.append(fs);
+ if(CH.kind=='pack')await Promise.all(CH.frames.map((src,i)=>new Promise((ok,bad)=>{const im=new Image();im.className='spr';im.onload=()=>ok();im.onerror=()=>bad(new Error('角色图读不了: '+decodeURI(src)));im.src=src;mover.append(im);IMGS[i]=im;})));
+ await document.fonts.load('700 30px PB').catch(()=>{});await document.fonts.ready;
+ if(st=='C')buildC();
+ return {bandH,scale:s,x,y,VW};
+};
+
+function state(t){let acc=0;for(let i=0;i<SEG.length;i++){const g=SEG[i];if(t<g.end||i==SEG.length-1){const sp=clamp((t-g.start)/g.d,0,1);return{i,sp,p:(acc+sp*g.d)/TOTAL};}acc+=g.d;}}
+const segMid=k=>starts[k]+SEG[k].d/TOTAL/2;
+// 标签中心夹在画布里，首尾短段的字不出界
+const labelX=(cx,label,fs,pad=8)=>{const hw=label.length*fs*0.52+pad;return clamp(cx,hw,VW-hw);};
+
+window.renderAt=(t)=>{
+ const enter=CFG.enter??SEG[0].start,e=clamp((t-enter)/0.4,0,1),ease=1-Math.pow(1-e,3);
+ mover.style.opacity=e;mover.style.transform=`translateY(${-(1-ease)*30}px)`;
+ IMGS.forEach(im=>im.style.display='none');spr.style.display='none';
+ if(e<=0){layer.innerHTML='';return;}
+ const st=state(Math.max(t,SEG[0].start));
+ layer.innerHTML=({A:rA,B:rB,C:rC,D:rD})[CFG.style](st,t);
+};
+
+// 所有可见元素的外框（舞台像素），给安全区检查用。被 clip 的路径和 defs 里的东西不算。
+window.bounds=()=>{let r=null;const skip=new Set(['svg','g','defs','filter','clippath','fe','stop']);
+ for(const el of band.querySelectorAll('*')){
+  const tag=el.tagName.toLowerCase();
+  if(el===layer||el===mover||skip.has(tag)||tag.startsWith('fe')||el.closest('defs')||el.closest('[clip-path]'))continue;
+  if(el.closest('.spr')&&el!==spr&&!el.classList.contains('spr'))continue;
+  if(getComputedStyle(el).display==='none')continue;
+  const b=el.getBoundingClientRect();if(b.width<=0&&b.height<=0)continue;
+  r=r?{x0:Math.min(r.x0,b.left),y0:Math.min(r.y0,b.top),x1:Math.max(r.x1,b.right),y1:Math.max(r.y1,b.bottom)}:{x0:b.left,y0:b.top,x1:b.right,y1:b.bottom};}
+ return r;};
+
+// ── 角色：自己上传的图（pack）或内置矢量示例（builtin）──
+function placeSprite(frameIdx,svgFn,ratio,left,top,hh,transform,origin,filter){
+ const sty={display:'block',left:left+'px',top:top+'px',height:hh+'px',transform,transformOrigin:origin,filter};
+ if(CH.kind=='pack'){Object.assign(IMGS[frameIdx].style,sty);}
+ else{spr.innerHTML=svgFn();Object.assign(spr.style,sty,{width:hh*ratio+'px'});}
+}
+const spriteRatio=(i,fallback)=>CH.kind=='pack'?IMGS[i].naturalWidth/IMGS[i].naturalHeight:fallback;
+
+function builtinWalker(ph){const a=Math.sin(ph)*0.55,b=-a;
+ const leg=g=>{const kx=Math.sin(g)*26,ky=Math.cos(g)*26;return`M0 -52 L${kx} ${-52+ky} L${kx+Math.sin(g*.4)*26} ${ky}`;};
+ const arm=g=>`M0 -92 L${Math.sin(g)*22} ${-92+Math.cos(g)*22} L${Math.sin(g)*30+6} ${-70+Math.cos(g)*22}`;
+ const d=`${leg(a)} ${leg(b)} M0 -52 L-2 -100 ${arm(-a)} ${arm(-b)} M-2 -122 m-22 0 a22 22 0 1 0 44 0 a22 22 0 1 0 -44 0`;
+ const bob=-Math.abs(Math.cos(ph))*5;
+ return`<svg viewBox="-45 -152 90 158" width="100%" height="100%" style="overflow:visible"><g transform="translate(0 ${bob})"><path d="${d}" stroke="#fff" stroke-width="16" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="${d}" stroke="${T.ink}" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 -124 l0 .1 M14 -124 l0 .1" stroke="${T.ink}" stroke-width="7" stroke-linecap="round"/><path d="M5 -113 q5 4 10 0" stroke="${T.ink}" stroke-width="4" fill="none" stroke-linecap="round"/></g></svg>`;}
+function builtinFace(k){const I=T.ink,eyes=[`<circle cx="-18" cy="-8" r="6" fill="${I}"/><circle cx="18" cy="-8" r="6" fill="${I}"/><path d="M-28 -24 l16 -4 M12 -22 l16 0" stroke="${I}" stroke-width="5" stroke-linecap="round"/>`,
+  `<path d="M-27 -8 q9 -8 18 0" stroke="${I}" stroke-width="5" fill="none" stroke-linecap="round"/><circle cx="18" cy="-8" r="6" fill="${I}"/>`,
+  `<circle cx="-18" cy="-8" r="6" fill="${I}"/><circle cx="18" cy="-8" r="6" fill="${I}"/>`][k%3];
+ const mouth=[`<path d="M-14 18 Q4 28 20 10" stroke="${I}" stroke-width="5" fill="none" stroke-linecap="round"/>`,`<path d="M-18 14 Q0 32 18 14" stroke="${I}" stroke-width="5" fill="none" stroke-linecap="round"/>`,`<ellipse cx="3" cy="20" rx="7" ry="8" fill="none" stroke="${I}" stroke-width="5"/>`][k%3];
+ return`<svg viewBox="-60 -60 120 120" width="100%" height="100%"><circle r="52" fill="${T.track}" stroke="${I}" stroke-width="6"/><circle cx="-30" cy="10" r="9" fill="${rgba(T.accent,.35)}"/><circle cx="30" cy="10" r="9" fill="${rgba(T.accent,.35)}"/>${eyes}${mouth}</svg>`;}
+
+// ───────── A 空心横条 ─────────
+function rA(st){const H=76,top=10,w=VW-10,fx=w*st.p,M=T.main;   // w = 描边内的宽度（外框 VW，描边 5px）
+ let h=`<div style="position:absolute;left:0;top:${top}px;width:${VW}px;height:${H}px;border-radius:${H/2}px;border:5px solid ${M};background:${rgba(T.track,.55)};overflow:hidden;filter:drop-shadow(0 0 8px ${lum(M)<.35?'rgba(255,255,255,.5)':'rgba(0,0,0,.35)'})">`;
+ h+=`<div style="position:absolute;left:0;top:0;bottom:0;width:${fx}px;background:${M}"></div>`;
+ starts.slice(1).forEach(s=>{const x=w*s;h+=`<div style="position:absolute;left:${x-1.5}px;top:14px;bottom:14px;width:3px;border-radius:2px;background:${x<fx?T.onMain:M};opacity:.8"></div>`;});
+ SEG.forEach((s,k)=>{const x0=w*starts[k],sw=w*s.d/TOTAL,f=clamp((fx-x0)/sw,0,1)*100,cur=k==st.i;
+  const fz=Math.min(cur?35:31,(sw-14)/Math.max(1,s.label.length));
+  h+=`<div style="position:absolute;left:${x0}px;width:${sw}px;top:0;bottom:0;display:flex;align-items:center;justify-content:center;white-space:nowrap;overflow:hidden;font-size:${fz}px;font-weight:${cur?900:700};background:linear-gradient(90deg,${T.onMain} ${f}%,${M} ${f}%);-webkit-background-clip:text;color:transparent;opacity:${k>st.i?.75:1}">${s.label}</div>`;});
+ return h+'</div>';}
+
+// ───────── B 分段细条 ─────────
+function rB(st){const gap=16,LY=26,BY=64,n=SEG.length;let FS=30;
+ const need=()=>SEG.reduce((a,s)=>a+s.label.length*FS+24,0)+gap*(n-1);while(need()>VW&&FS>16)FS--;
+ const minw=SEG.map(s=>s.label.length*FS+24),free=Math.max(0,VW-gap*(n-1)-minw.reduce((a,b)=>a+b,0)),ws=SEG.map((s,k)=>minw[k]+free*s.d/TOTAL);
+ const sh=textShadow(T.text),glow=lum(T.main)<.35?'rgba(255,255,255,.7)':'rgba(0,0,0,.4)';
+ let h='',x=0;
+ SEG.forEach((s,k)=>{const cur=k==st.i,f=k<st.i?1:cur?st.sp:0;
+  h+=`<div style="position:absolute;left:${x}px;top:${BY-5}px;width:${ws[k]}px;height:10px;border-radius:5px;background:${rgba(T.track,.6)}"></div>`;
+  if(f>0)h+=`<div style="position:absolute;left:${x}px;top:${BY-5}px;width:${ws[k]*f}px;height:10px;border-radius:5px;background:${T.main};box-shadow:0 0 8px ${glow}"></div>`;
+  h+=`<div class="lb" style="left:${x+ws[k]/2}px;top:${LY}px;transform:translate(-50%,-50%) scale(${cur?1.1:1});font-size:${FS}px;color:${T.text};text-shadow:${sh};opacity:${cur?1:.6}">${s.label}</div>`;
+  x+=ws[k]+gap;});
+ return h;}
+
+// ───────── C 手绘条 + 走路角色 ─────────
+const CY=223,CHT=46;
+const CL=()=>20,CW=()=>VW-40;
+function buildC(){let seed=5;const rnd=()=>{seed=(seed*9301+49297)%233280;return seed/233280};const L=CL(),W=CW(),r=CHT/2;
+ const top=[],bot=[];for(let x=L+r;x<=L+W-r;x+=30){top.push([x,CY-r+(rnd()-.5)*5]);bot.push([x,CY+r+(rnd()-.5)*5]);}
+ const cap=(cx,a0,a1)=>{const p=[];for(let i=0;i<=6;i++){const a=a0+(a1-a0)*i/6;p.push([cx+Math.cos(a)*(r+(rnd()-.5)*3),CY+Math.sin(a)*(r+(rnd()-.5)*3)]);}return p;};
+ const pts=[...top,...cap(L+W-r,-Math.PI/2,Math.PI/2),...bot.reverse(),...cap(L+r,Math.PI/2,Math.PI*1.5)];
+ rough.tube='M'+pts.map(p=>p.map(v=>v.toFixed(1)).join(' ')).join(' L')+' Z';
+ rough.tube2=rough.tube.replace(/(\d+\.\d) (\d+\.\d)/g,(m,a,b)=>`${(+a+1.8).toFixed(1)} ${(+b-1.5).toFixed(1)}`);
+ seed=9;let d='';for(let x=L-20;x<L+W+20;x+=13){const j=(rnd()-.5)*4;d+=`M${x+j} ${CY+r+6} L${x+j+26+(rnd()-.5)*6} ${CY-r-6} `;}rough.hatch=d;
+ rough.ticks=starts.slice(1).map(s=>{seed=Math.round(s*1000)+1;const x=L+W*s;return`M${x+(rnd()-.5)*3} ${CY-r+4} Q${x+(rnd()-.5)*6} ${CY} ${x+(rnd()-.5)*3} ${CY+r-4}`;}).join(' ');}
+function inkFlag(x,y,on){return`<g transform="translate(${x} ${y})"><path d="M0 0 Q2 -30 1 -62" stroke="${T.ink}" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M1 -62 Q18 -60 36 -50 Q20 -44 2 -38" stroke="${T.ink}" stroke-width="4.5" fill="${on?T.main:T.track}" stroke-linejoin="round"/></g>`;}
+function rC(st,t){const L=CL(),W=CW(),r=CHT/2,fx=L+W*st.p;
+ let s=`<svg width="${VW}" height="${BOX.C}" style="position:absolute;left:0;top:0;overflow:visible"><defs>
+  <filter id="pen"><feTurbulence baseFrequency="0.04" numOctaves="2" seed="4"/><feDisplacementMap in="SourceGraphic" scale="3.5"/></filter>
+  <filter id="cray"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="2" result="n"/><feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -0.9 1.35" result="m"/><feComposite in="SourceGraphic" in2="m" operator="in" result="c"/><feTurbulence baseFrequency="0.05" seed="7" result="w"/><feDisplacementMap in="c" in2="w" scale="5"/></filter>
+  <clipPath id="tubeClip"><path d="${rough.tube}"/></clipPath><clipPath id="progClip"><rect x="0" y="0" width="${fx}" height="${BOX.C}"/></clipPath></defs>`;
+ s+=`<path d="${rough.tube}" fill="${rgba(T.track,.92)}" filter="url(#pen)"/>`;
+ s+=`<g clip-path="url(#tubeClip)"><g clip-path="url(#progClip)"><path d="${rough.hatch}" stroke="${T.main}" stroke-width="13" stroke-linecap="round" fill="none" filter="url(#cray)"/></g></g>`;
+ s+=`<g filter="url(#pen)"><path d="${rough.ticks}" stroke="${T.ink}" stroke-width="4" fill="none" stroke-linecap="round"/>`;
+ s+=`<path d="${rough.tube}" stroke="${T.ink}" stroke-width="5" fill="none" stroke-linejoin="round"/><path d="${rough.tube2}" stroke="${T.ink}" stroke-width="2" fill="none" opacity=".55"/>`;
+ starts.slice(1).forEach((p,k)=>{s+=inkFlag(L+W*p+2,CY-r+2,k+1<=st.i);});
+ s+=`<path transform="translate(${L+W-10} ${CY-r-26})" d="M0 -16 L5 -5 L17 -4 L8 4 L11 16 L0 9 L-11 16 L-8 4 L-17 -4 L-5 -5 Z" stroke="${T.ink}" stroke-width="4" fill="${st.p>.999?T.main:T.track}" stroke-linejoin="round"/>`;
+ [[L+40,CY-70],[L+W*0.62,CY-88],[L+W-60,CY+52]].forEach(([x,y])=>s+=`<circle cx="${x}" cy="${y}" r="7" fill="${T.accent}"/>`);
+ // 角色：每秒换 fps 张，一步一颠，朝前进方向
+ const hh=200,n=CH.kind=='pack'?CH.frames.length:1,fps=CH.fps??2,fi=Math.floor(t*fps)%n,step=t*fps%1;
+ const ratio=spriteRatio(fi,90/158),ww=hh*ratio,bob=-Math.sin(step*Math.PI)*8,tilt=Math.sin(t*fps*Math.PI)*2;
+ const left=clamp(fx-ww/2,10,VW-10-ww),flip=CH.kind=='pack'&&CH.facing=='left'?'scaleX(-1) ':'';
+ const bx=left+ww*0.18,by=CY-r-96;
+ s+=`<path d="M${bx} ${by-22} q-10 10 -8 24 M${bx-16} ${by-14} q-10 10 -8 24" stroke="${T.ink}" stroke-width="5" fill="none" stroke-linecap="round"/>`;
+ s+=`</g></svg>`;
+ const sh=textShadow(T.text);
+ SEG.forEach((sg,k)=>{const cur=k==st.i,fz=cur?36:30;s+=`<div class="lb" style="left:${labelX(L+W*segMid(k),sg.label,fz)}px;top:${CY+r+16}px;transform:translateX(-50%);font-size:${fz}px;color:${T.text};text-shadow:${sh};opacity:${cur?1:.6}">${sg.label}</div>`;});
+ placeSprite(fi,()=>builtinWalker(t*7),ratio,left,CY-r-hh+12+bob,hh,`${flip}rotate(${tilt}deg)`,'50% 100%',`${outline('#fff',4)} drop-shadow(0 6px 10px rgba(0,0,0,.25))`);
+ return s;}
+
+// ───────── D 美式复古条 + 表情角色 ─────────
+const DY=257,DH=54;
+function star(x,y,rr,fill){const p=[];for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5,q=i%2?rr*.45:rr;p.push((x+Math.cos(a)*q).toFixed(1)+' '+(y+Math.sin(a)*q).toFixed(1));}
+ return`<path d="M${p.join(' L')} Z" fill="${fill}" stroke="${T.ink}" stroke-width="5" stroke-linejoin="round"/>`;}
+function rD(st,t){const w=VW-8,fx=w*st.p,I=T.ink,M=T.main;
+ let h=`<div style="position:absolute;left:7px;top:${DY-DH/2+7}px;width:${w}px;height:${DH}px;border-radius:${DH/2}px;background:${I}"></div>`;
+ h+=`<div style="position:absolute;left:0;top:${DY-DH/2}px;width:${w}px;height:${DH}px;border-radius:${DH/2}px;background:${T.track};border:6px solid ${I};overflow:hidden">`;
+ h+=`<div style="position:absolute;left:0;top:0;bottom:0;width:${fx}px;background:repeating-linear-gradient(-45deg,${M} 0 16px,${darken(M,.18)} 16px 32px);background-size:45.25px 45.25px;background-position:${(t*40)%45.25}px 0;border-right:${fx>2?4:0}px solid ${I}"></div>`;
+ h+=`<div style="position:absolute;left:10px;right:10px;top:7px;height:8px;border-radius:4px;background:rgba(255,255,255,.35)"></div></div>`;
+ let sv=`<svg width="${VW}" height="${BOX.D}" style="position:absolute;left:0;top:0;overflow:visible">`;
+ [...starts.slice(1),1].forEach((p,k)=>{const last=k==SEG.length-1,reached=last?st.p>.999:st.p>=p-1e-6;sv+=star(clamp(w*p,30,w-30),DY,30,reached?M:T.track);});
+ h+=sv+'</svg>';
+ SEG.forEach((sg,k)=>{const cur=k==st.i,fz=cur?34:30,cx=labelX(w*segMid(k),sg.label,fz,cur?28:8);
+  if(cur)h+=`<div style="position:absolute;left:${cx}px;top:${DY+DH/2+20}px;transform:translateX(-50%) rotate(-2deg);background:${I};color:${T.track};font-size:${fz}px;font-weight:900;padding:4px 18px;border-radius:10px;box-shadow:5px 5px 0 ${M};white-space:nowrap">${sg.label}</div>`;
+  else h+=`<div style="position:absolute;left:${cx}px;top:${DY+DH/2+24}px;transform:translateX(-50%);color:${I};font-size:${fz}px;font-weight:900;white-space:nowrap;opacity:${k<st.i?.85:.6};text-shadow:2px 2px 0 ${T.track},-2px -2px 0 ${T.track},2px -2px 0 ${T.track},-2px 2px 0 ${T.track}">${sg.label}</div>`;});
+ // 每拍甩一下头（左右交替），甩的同一瞬间换下一个表情
+ const beat=CH.beat??1.0,b=Math.floor(t/beat),u=(t%beat)/beat,dir=b%2?1:-1,n=CH.kind=='pack'?CH.frames.length:3,fi=b%n;
+ const swp=Math.min(1,u/0.28),es=1-Math.pow(1-swp,3)+Math.sin(swp*Math.PI)*0.25;
+ const shake=-dir*13+dir*26*es,pop=u<0.28?1+0.12*Math.sin(u/0.28*Math.PI):1,hh=190,ratio=spriteRatio(fi,1),ww=hh*ratio;
+ // 头像转 13° 再放大 1.12 倍时，角会甩出原来的框：按最大摆幅算出要让多少
+ const A13=13*Math.PI/180,over=Math.ceil(1.12*(ww/2*Math.cos(A13)+hh*.95*Math.sin(A13))-ww/2)+16;
+ const left=clamp(fx-ww/2,over,VW-over-ww);
+ placeSprite(fi,()=>builtinFace(fi),ratio,left,DY-DH/2-hh+4,hh,`rotate(${shake}deg) scale(${pop})`,'50% 95%',`${outline('#fff',5)} ${outline(I,3)} drop-shadow(7px 7px 0 ${I})`);
+ return h;}
+</script></body></html>

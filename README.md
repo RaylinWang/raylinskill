@@ -10,6 +10,7 @@
 | [video-to-text](./video-to-text) | 本地视频转中文文字报告：`mlx_whisper` 转录 + 语义分段 + 双人角色推断 + 核心观点总结 | `/视频转文字`、`/video-to-text` |
 | [koubo-pipeline](./koubo-pipeline) | 真人口播视频动效流水线：转码 → 转录校对 → 分镜卡 → 静帧审批 → 4K 渲染归档 | `/口播剪辑` |
 | [jianbihua](./jianbihua) | 固定 IP 形象的简笔画、教学插图、Q 版贴纸生图（自带角色参考图与风格 DNA） | `/简笔画` |
+| [chapter-progress-bar](./chapter-progress-bar) | 给口播 / 教程视频加章节进度条：4 种样式，配色可换，手绘小人和真人表情用你自己的形象；Agent 直接叠进视频，或导出透明 MOV / 绿幕 MP4；自动避开抖音 / TikTok / 小红书安全区 | 「加进度条」「章节进度条」 |
 
 ## 安装
 
@@ -44,11 +45,17 @@ cp -r video-to-text ~/.claude/skills/
   brew install ffmpeg
   ```
 
+- **chapter-progress-bar**：Google Chrome（或 Edge / Chromium）、Node.js 22+、`ffmpeg`
+  ```bash
+  brew install node ffmpeg
+  ```
+
 ## 兼容性
 
 - Claude Code（终端 CLI）
 - macOS 为主；Linux 应该也能跑，未测
 - video-to-text 依赖 MLX，仅 Apple Silicon
+- chapter-progress-bar：macOS 已测；Windows、Linux 按跨平台写的，未实机测。在 Claude 桌面端里出片要在终端里跑（沙盒里起不了 Chrome）
 
 ## License
 

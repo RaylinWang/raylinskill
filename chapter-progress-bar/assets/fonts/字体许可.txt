@@ -1,0 +1,4 @@
+NotoSansSC-VF.ttf = 思源黑体 / Noto Sans SC（可变字重），Google 与 Adobe 出品。
+许可：SIL Open Font License 1.1。可以免费使用、嵌入视频、随软件再分发；不能单独出售字体文件。
+许可全文：同目录的 OFL.txt（https://openfontlicense.org）
+字体来源：https://fonts.google.com/noto/specimen/Noto+Sans+SC

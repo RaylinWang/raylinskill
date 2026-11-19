@@ -1,0 +1,12 @@
+{
+  "style": "A",
+  "aspect": "16:9",
+  "theme": {"base": "海军蓝", "main": "#1F4E79"},
+  "out": "progress_A_16x9.mov",
+  "segments": [
+    {"label": "背景", "start": 0,   "end": 40},
+    {"label": "方法", "start": 40,  "end": 150},
+    {"label": "案例", "start": 150, "end": 260},
+    {"label": "总结", "start": 260, "end": 300}
+  ]
+}

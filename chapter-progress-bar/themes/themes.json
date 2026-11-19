@@ -1,0 +1,9 @@
+{
+  "_说明": "每套配色 6 个颜色。main 主色（填充、标签）；track 底槽 / 纸色；ink 勾线、描边、硬投影；accent 点缀；text 标签文字（不填等于 main）；onMain 压在主色上的文字（A 样式推过的字）。配置里可以写主题名，也可以写 {\"base\":\"主题名\",\"main\":\"#xxxxxx\"} 只改其中几个。",
+  "深红奶油": { "main": "#660924", "track": "#FDF0D5", "ink": "#1D1A1A", "accent": "#B5578F", "onMain": "#FDF0D5" },
+  "美式红蓝": { "main": "#C1121F", "track": "#FDF0D5", "ink": "#003049", "accent": "#C1121F", "onMain": "#FDF0D5" },
+  "墨黑白": { "main": "#1D1D1F", "track": "#F5F5F2", "ink": "#1D1D1F", "accent": "#E4572E", "onMain": "#F5F5F2" },
+  "海军蓝": { "main": "#14365C", "track": "#EAF1F7", "ink": "#0B1E33", "accent": "#F2A541", "onMain": "#EAF1F7" },
+  "森林绿": { "main": "#2D5A3D", "track": "#F1EEDC", "ink": "#1C2B20", "accent": "#D98E04", "onMain": "#F1EEDC" },
+  "奶茶棕": { "main": "#7A4A2E", "track": "#F6EBDD", "ink": "#3A241A", "accent": "#C76B4A", "onMain": "#F6EBDD" }
+}
