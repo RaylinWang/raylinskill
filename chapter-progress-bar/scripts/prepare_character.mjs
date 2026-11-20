@@ -1,7 +1,7 @@
 // 把用户自己的图做成角色（C 的走路角色 / D 的表情角色）：抠透明底、去掉周围的装饰点和线、裁边，
 // 存进角色库，出一张预览图。之后配置里写 "character": "名字" 就能用。
 //
-//   node prepare_character.mjs --type walk --facing left --name 小明走路 图1.png 图2.png 图3.png 图4.png
+//   node prepare_character.mjs --type walk --facing right --name 小明走路 左脚在前.png 右脚在前.png
 //   node prepare_character.mjs --type face --name 小明表情 坏笑.png 眨眼.png 嘟嘴.png
 //   node prepare_character.mjs --list                       列出角色库里已有的角色
 //
@@ -55,8 +55,8 @@ if (opt.name && /[\/\\]/.test(opt.name)) die('--name 里不能有斜杠');
 if (!files.length) die('至少给一张图');
 if (opt.type === 'walk' && !['left', 'right'].includes(opt.facing)) die('走路角色要说明原图面朝哪边：--facing left 或 --facing right');
 files.forEach(f => { if (!fs.existsSync(f)) die('找不到图：' + f); });
-if (opt.type === 'walk' && files.length === 1) console.warn('! 走路只有 1 张图，会原地一颠一颠地走；2–8 张效果更好');
-if (files.length > 12) console.warn(`! ${files.length} 张有点多，走路 2–8 张、表情 2–5 张就够`);
+if (opt.type === 'walk' && files.length === 1) console.warn('! 走路只有 1 张图，会原地一颠一颠地走；2 张迈步图（左脚在前、右脚在前）就够');
+if (files.length > 12) console.warn(`! ${files.length} 张有点多，走路 2 张、表情 2–5 张就够`);
 
 const out = path.resolve(opt.out || path.join(LIB, opt.name)), sub = opt.type === 'walk' ? 'walk' : 'faces';
 if (fs.existsSync(out) && fs.readdirSync(out).length) {
