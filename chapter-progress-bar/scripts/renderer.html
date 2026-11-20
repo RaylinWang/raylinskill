@@ -15,7 +15,7 @@ html,body{margin:0;background:transparent;overflow:hidden}
 .spr{position:absolute;display:none}
 </style></head><body><div id="stage"><div id="band"><div id="mover"><div id="layer"></div><div id="spr" class="spr"></div></div></div></div>
 <script>
-const BOX={A:96,B:78,C:315,D:389};          // 各样式内容高度（虚拟单位）
+const BOX={A:96,B:78,C:315,D:206};          // 各样式内容高度（虚拟单位）
 const SCAP={A:1075,B:1075,C:1400,D:1400};   // s ≤ 画面高 / 这个数（横屏、方屏时防止条太粗）
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 let CFG,SEG,TOTAL,starts,T,VW,CH,IMGS=[],rough={};
@@ -155,27 +155,36 @@ function rC(st,t){const L=CL(),W=CW(),r=CHT/2,fx=L+W*st.p;
  return s;}
 
 // ───────── D 美式复古条 + 表情角色 ─────────
-const DY=257,DH=54;
+// 细条 + 硬投影 + 流动条纹 + 每章一颗星；头像嵌在条上，跟着进度走（像滑块），标签在条下方
+const DY=74,DH=22,DHH=104;
 function star(x,y,rr,fill){const p=[];for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5,q=i%2?rr*.45:rr;p.push((x+Math.cos(a)*q).toFixed(1)+' '+(y+Math.sin(a)*q).toFixed(1));}
- return`<path d="M${p.join(' L')} Z" fill="${fill}" stroke="${T.ink}" stroke-width="5" stroke-linejoin="round"/>`;}
-function rD(st,t){const w=VW-8,fx=w*st.p,I=T.ink,M=T.main;
- let h=`<div style="position:absolute;left:7px;top:${DY-DH/2+7}px;width:${w}px;height:${DH}px;border-radius:${DH/2}px;background:${I}"></div>`;
- h+=`<div style="position:absolute;left:0;top:${DY-DH/2}px;width:${w}px;height:${DH}px;border-radius:${DH/2}px;background:${T.track};border:6px solid ${I};overflow:hidden">`;
- h+=`<div style="position:absolute;left:0;top:0;bottom:0;width:${fx}px;background:repeating-linear-gradient(-45deg,${M} 0 16px,${darken(M,.18)} 16px 32px);background-size:45.25px 45.25px;background-position:${(t*40)%45.25}px 0;border-right:${fx>2?4:0}px solid ${I}"></div>`;
- h+=`<div style="position:absolute;left:10px;right:10px;top:7px;height:8px;border-radius:4px;background:rgba(255,255,255,.35)"></div></div>`;
- let sv=`<svg width="${VW}" height="${BOX.D}" style="position:absolute;left:0;top:0;overflow:visible">`;
- [...starts.slice(1),1].forEach((p,k)=>{const last=k==SEG.length-1,reached=last?st.p>.999:st.p>=p-1e-6;sv+=star(clamp(w*p,30,w-30),DY,30,reached?M:T.track);});
- h+=sv+'</svg>';
- SEG.forEach((sg,k)=>{const cur=k==st.i,fz=cur?34:30,cx=labelX(w*segMid(k),sg.label,fz,cur?28:8);
-  if(cur)h+=`<div style="position:absolute;left:${cx}px;top:${DY+DH/2+20}px;transform:translateX(-50%) rotate(-2deg);background:${I};color:${T.track};font-size:${fz}px;font-weight:900;padding:4px 18px;border-radius:10px;box-shadow:5px 5px 0 ${M};white-space:nowrap">${sg.label}</div>`;
-  else h+=`<div style="position:absolute;left:${cx}px;top:${DY+DH/2+24}px;transform:translateX(-50%);color:${I};font-size:${fz}px;font-weight:900;white-space:nowrap;opacity:${k<st.i?.85:.6};text-shadow:2px 2px 0 ${T.track},-2px -2px 0 ${T.track},2px -2px 0 ${T.track},-2px 2px 0 ${T.track}">${sg.label}</div>`;});
+ return`<path d="M${p.join(' L')} Z" fill="${fill}" stroke="${T.ink}" stroke-width="3.5" stroke-linejoin="round"/>`;}
+function rD(st,t){const I=T.ink,M=T.main;
  // 每拍甩一下头（左右交替），甩的同一瞬间换下一个表情
  const beat=CH.beat??1.0,b=Math.floor(t/beat),u=(t%beat)/beat,dir=b%2?1:-1,n=CH.kind=='pack'?CH.frames.length:3,fi=b%n;
  const swp=Math.min(1,u/0.28),es=1-Math.pow(1-swp,3)+Math.sin(swp*Math.PI)*0.25;
- const shake=-dir*13+dir*26*es,pop=u<0.28?1+0.12*Math.sin(u/0.28*Math.PI):1,hh=190,ratio=spriteRatio(fi,1),ww=hh*ratio;
- // 头像转 13° 再放大 1.12 倍时，角会甩出原来的框：按最大摆幅算出要让多少
- const A13=13*Math.PI/180,over=Math.ceil(1.12*(ww/2*Math.cos(A13)+hh*.95*Math.sin(A13))-ww/2)+16;
- const left=clamp(fx-ww/2,over,VW-over-ww);
- placeSprite(fi,()=>builtinFace(fi),ratio,left,DY-DH/2-hh+4,hh,`rotate(${shake}deg) scale(${pop})`,'50% 95%',`${outline('#fff',5)} ${outline(I,3)} drop-shadow(7px 7px 0 ${I})`);
+ const shake=-dir*10+dir*20*es,pop=u<0.28?1+0.1*Math.sin(u/0.28*Math.PI):1,hh=DHH,ratio=spriteRatio(fi,1),ww=hh*ratio;
+ // 头像绕中心转 10° 再放大 1.1 倍时，角会甩出原来的框：按最大摆幅算出两头要留多少
+ const A=10*Math.PI/180,over=Math.max(0,Math.ceil(1.1*(ww/2*Math.cos(A)+hh/2*Math.sin(A))-ww/2))+8;
+ // 条从 L 画到 R；头像中心在 L..R 上按进度走，两头不出界
+ const L=ww/2+over,R=VW-4-L,w=R-L,cx=L+w*st.p,fx=cx-L;
+ let h=`<div style="position:absolute;left:${L+4}px;top:${DY-DH/2+4}px;width:${w}px;height:${DH}px;border-radius:${DH/2}px;background:${I}"></div>`;
+ h+=`<div style="position:absolute;left:${L}px;top:${DY-DH/2}px;width:${w}px;height:${DH}px;border-radius:${DH/2}px;background:${T.track};border:3.5px solid ${I};overflow:hidden">`;
+ h+=`<div style="position:absolute;left:0;top:0;bottom:0;width:${fx}px;background:repeating-linear-gradient(-45deg,${M} 0 9px,${darken(M,.18)} 9px 18px);background-size:25.46px 25.46px;background-position:${(t*24)%25.46}px 0"></div>`;
+ h+=`<div style="position:absolute;left:8px;right:8px;top:3px;height:3px;border-radius:2px;background:rgba(255,255,255,.35)"></div></div>`;
+ let sv=`<svg width="${VW}" height="${BOX.D}" style="position:absolute;left:0;top:0;overflow:visible">`;
+ [...starts.slice(1),1].forEach((p,k)=>{const last=k==SEG.length-1,reached=last?st.p>.999:st.p>=p-1e-6;sv+=star(clamp(L+w*p,L+16,R-16),DY,16,reached?M:T.track);});
+ h+=sv+'</svg>';
+ // 标签：比条字号小一档，离头像留出空隙；先按章节中点摆，再左右推开，任何两个标签之间至少留 GAP，放不下就整体缩小字号
+ const ly=DY+hh/2+16,GAP=20,PAD=12;let FN=24,FC=26;
+ const slot=k=>[...SEG[k].label].length*FC+PAD*2;   // 每个标签按「当前章」的大小占位，换章时位置不跳
+ while(SEG.reduce((a,_,k)=>a+slot(k),0)+GAP*(SEG.length-1)>VW&&FN>16){FN--;FC--;}
+ const lx=SEG.map((_,k)=>L+w*segMid(k));
+ for(let k=0;k<SEG.length;k++){lx[k]=Math.max(lx[k],slot(k)/2+4);if(k)lx[k]=Math.max(lx[k],lx[k-1]+(slot(k-1)+slot(k))/2+GAP);}
+ for(let k=SEG.length-1;k>=0;k--){lx[k]=Math.min(lx[k],VW-slot(k)/2-8);if(k<SEG.length-1)lx[k]=Math.min(lx[k],lx[k+1]-(slot(k)+slot(k+1))/2-GAP);}
+ SEG.forEach((sg,k)=>{const cur=k==st.i;
+  if(cur)h+=`<div style="position:absolute;left:${lx[k]}px;top:${ly}px;transform:translateX(-50%) rotate(-2deg);background:${I};color:${T.track};font-size:${FC}px;line-height:1.3;font-weight:900;padding:1px ${PAD}px;border-radius:7px;box-shadow:3px 3px 0 ${M};white-space:nowrap">${sg.label}</div>`;
+  else h+=`<div style="position:absolute;left:${lx[k]}px;top:${ly+2}px;transform:translateX(-50%);color:${I};font-size:${FN}px;line-height:1.3;font-weight:700;white-space:nowrap;opacity:${k<st.i?.8:.55};text-shadow:1.5px 1.5px 0 ${T.track},-1.5px -1.5px 0 ${T.track},1.5px -1.5px 0 ${T.track},-1.5px 1.5px 0 ${T.track}">${sg.label}</div>`;});
+ placeSprite(fi,()=>builtinFace(fi),ratio,cx-ww/2,DY-hh/2,hh,`rotate(${shake}deg) scale(${pop})`,'50% 50%',`${outline('#fff',4)} ${outline(I,2.5)} drop-shadow(4px 4px 0 ${I})`);
  return h;}
 </script></body></html>
